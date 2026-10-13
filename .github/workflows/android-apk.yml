@@ -1,0 +1,61 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find the app folder
+        run: |
+          if [ -f build.mjs ]; then D=.; elif [ -f radiance/build.mjs ]; then D=radiance; else D=$(dirname "$(find . -name build.mjs -not -path '*/node_modules/*' | head -1)"); fi
+          if [ -z "$D" ] || [ ! -f "$D/build.mjs" ]; then echo "build.mjs not found - upload the project files"; exit 1; fi
+          echo "APP_DIR=$D" >> $GITHUB_ENV; echo "App folder: $D"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build the website
+        run: cd "$APP_DIR" && npm run build
+
+      - name: Install Capacitor
+        run: cd "$APP_DIR" && npm install --no-save @capacitor/core@6.1.2 @capacitor/cli@6.1.2 @capacitor/android@6.1.2
+
+      - name: Capacitor config
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
+        run: |
+          cd "$APP_DIR"
+          if [ -n "$SITE_URL" ]; then SERVER=",\"server\":{\"url\":\"${SITE_URL%/}\"}"; else SERVER=""; fi
+          printf '{"appId":"org.radiancederm.app","appName":"RADIANCE","webDir":"dist","appendUserAgent":"RadianceApp","backgroundColor":"#EEF9F8"%s}' "$SERVER" > capacitor.config.json
+          cat capacitor.config.json
+
+      - name: Create Android project (icon, splash, colours, camera)
+        run: |
+          cd "$APP_DIR"
+          npx cap add android
+          RES=android/app/src/main/res
+          if [ -d android-res ]; then cp -r android-res/. $RES/; find $RES -name 'splash.png' -exec cp android-res/drawable/splash.png {} \; ; fi
+          sed -i 's/#3F51B5/#1F5F66/I; s/#303F9F/#1F5F66/I; s/#FF4081/#3DAA6B/I' $RES/values/colors.xml || true
+          sed -i 's#</manifest>#    <uses-permission android:name="android.permission.CAMERA" />\n</manifest>#' android/app/src/main/AndroidManifest.xml
+          npx cap sync android
+
+      - name: Build debug APK
+        run: cd "$APP_DIR/android" && ./gradlew assembleDebug --no-daemon
+
+      - name: Copy APK
+        run: cp "$APP_DIR/android/app/build/outputs/apk/debug/app-debug.apk" radiance.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: radiance-apk
+          path: radiance.apk
