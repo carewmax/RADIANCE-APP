@@ -1,0 +1,12 @@
+[build]
+  command = "node build.mjs && cp public/* dist/ && cp content.json dist/content.json"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(self), microphone=(), geolocation=()"

@@ -1,0 +1,13 @@
+{
+  "name": "radiance-clinic-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RADIANCE Dermatology & Aesthetics Clinic: website, patient app and staff console.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs && cp public/* dist/ && cp content.json dist/content.json",
+    "dev": "npm run build && npx --yes netlify-cli dev",
+    "test": "node build.mjs && node tests/smoke.test.mjs"
+  },
+  "devDependencies": { "playwright": "1.47.2" }
+}
